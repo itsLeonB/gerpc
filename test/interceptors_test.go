@@ -4,22 +4,19 @@ import (
 	"testing"
 
 	"github.com/itsLeonB/gerpc"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewErrorInterceptor(t *testing.T) {
-	logger := &mockLogger{}
+	logger := &MockLogger{}
 	interceptor := gerpc.NewErrorInterceptor(logger)
-	
-	if interceptor == nil {
-		t.Fatal("expected non-nil interceptor")
-	}
+
+	assert.NotNil(t, interceptor)
 }
 
 func TestNewLoggingInterceptor(t *testing.T) {
-	logger := &mockLogger{}
+	logger := &MockLogger{}
 	interceptor := gerpc.NewLoggingInterceptor(logger)
-	
-	if interceptor == nil {
-		t.Fatal("expected non-nil interceptor")
-	}
+
+	assert.NotNil(t, interceptor)
 }

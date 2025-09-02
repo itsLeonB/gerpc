@@ -5,17 +5,18 @@ import (
 	"testing"
 
 	"github.com/itsLeonB/gerpc/internal"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 )
 
 func TestInterceptorInterface(t *testing.T) {
-	logger := &mockLogger{}
-	
-	// Test that error interceptor implements Interceptor interface
-	var _ internal.Interceptor = internal.NewErrorInterceptor(logger)
-	
-	// Test that logging interceptor implements Interceptor interface
-	var _ internal.Interceptor = internal.NewLoggingInterceptor(logger)
+	logger := &MockLogger{}
+
+	errorInterceptor := internal.NewErrorInterceptor(logger)
+	loggingInterceptor := internal.NewLoggingInterceptor(logger)
+
+	assert.NotNil(t, errorInterceptor)
+	assert.NotNil(t, loggingInterceptor)
 }
 
 type testInterceptor struct{}
@@ -25,5 +26,6 @@ func (ti *testInterceptor) Handle(ctx context.Context, req any, info *grpc.Unary
 }
 
 func TestCustomInterceptor(t *testing.T) {
-	var _ internal.Interceptor = &testInterceptor{}
+	var interceptor internal.Interceptor = &testInterceptor{}
+	assert.NotNil(t, interceptor)
 }
