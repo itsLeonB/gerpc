@@ -33,7 +33,7 @@ func TestLoggingInterceptor_Handle_Success(t *testing.T) {
 
 func TestLoggingInterceptor_Handle_Error(t *testing.T) {
 	logger := &MockLogger{}
-	logger.On("Errorf", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
+	logger.On("Errorf", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
 
 	interceptor := internal.NewLoggingInterceptor(logger)
 
@@ -51,7 +51,7 @@ func TestLoggingInterceptor_Handle_Error(t *testing.T) {
 
 func TestLoggingInterceptor_Handle_NonGRPCError(t *testing.T) {
 	logger := &MockLogger{}
-	logger.On("Errorf", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
+	logger.On("Errorf", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
 
 	interceptor := internal.NewLoggingInterceptor(logger)
 
