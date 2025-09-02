@@ -33,7 +33,7 @@ func (s *GrpcServer) WithAddress(address string) *GrpcServer {
 }
 
 func (s *GrpcServer) WithOpts(opts ...grpc.ServerOption) *GrpcServer {
-	s.opts = opts
+	s.opts = append(s.opts, opts...)
 	return s
 }
 
@@ -48,6 +48,19 @@ func (s *GrpcServer) WithShutdownFunc(shutdownFunc func() error) *GrpcServer {
 }
 
 func (s *GrpcServer) Run() {
+	if s.logger == nil {
+		panic("logger cannot be nil, call WithLogger")
+	}
+	if s.address == "" {
+		panic("address cannot be empty, call WithAddress")
+	}
+	if s.registerSrvFunc == nil {
+		panic("registerSrvFunc cannot be nil, call WithRegisterSrvFunc")
+	}
+	if s.shutdownFunc == nil {
+		s.shutdownFunc = func() error { return nil }
+	}
+
 	listener, err := net.Listen("tcp", s.address)
 	if err != nil {
 		s.logger.Fatalf("error listening to %s: %v", s.address, err)
@@ -76,5 +89,5 @@ func (s *GrpcServer) Run() {
 		s.logger.Errorf("error during cleanup: %v", err)
 	}
 
-	s.logger.Info("server successfully shutdown")
+	s.logger.Info("server successfully shut down")
 }

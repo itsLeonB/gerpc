@@ -31,11 +31,12 @@ func (li *loggingInterceptor) Handle(ctx context.Context, req any, info *grpc.Un
 
 	if err != nil {
 		li.logger.Errorf(
-			"[gRPC] method=%s duration=%s status=%s error=%v",
+			"[gRPC] method=%s duration=%v status=%s msg=%q err=%v",
 			info.FullMethod,
 			elapsed,
-			st.Code(),
+			st.Code().String(),
 			st.Message(),
+			err,
 		)
 	} else {
 		li.logger.Infof(
