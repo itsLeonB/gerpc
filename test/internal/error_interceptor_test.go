@@ -141,3 +141,49 @@ func TestErrorInterceptor_Handle_UnwrappedError(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, codes.Internal, st.Code())
 }
+
+func TestErrorInterceptor_HandleStream_Success(t *testing.T) {
+	logger := &MockLogger{}
+	interceptor := internal.NewErrorInterceptor(logger)
+
+	handler := func(srv interface{}, ss grpc.ServerStream) error {
+		return nil
+	}
+
+	err := interceptor.HandleStream(nil, &mockServerStream{}, &grpc.StreamServerInfo{}, handler)
+	assert.NoError(t, err)
+}
+
+func TestErrorInterceptor_HandleStream_AppError(t *testing.T) {
+	logger := &MockLogger{}
+	interceptor := internal.NewErrorInterceptor(logger)
+
+	appErr := ungerr.BadRequestError("test error")
+	handler := func(srv interface{}, ss grpc.ServerStream) error {
+		return appErr
+	}
+
+	err := interceptor.HandleStream(nil, &mockServerStream{}, &grpc.StreamServerInfo{}, handler)
+
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+func TestErrorInterceptor_HandleStream_Panic(t *testing.T) {
+	logger := &MockLogger{}
+	logger.On("Error", mock.Anything).Return()
+	logger.On("Errorf", mock.Anything, mock.Anything).Return()
+
+	interceptor := internal.NewErrorInterceptor(logger)
+
+	handler := func(srv interface{}, ss grpc.ServerStream) error {
+		panic("test panic")
+	}
+
+	err := interceptor.HandleStream(nil, &mockServerStream{}, &grpc.StreamServerInfo{}, handler)
+
+	st, ok := status.FromError(err)
+	assert.True(t, ok)
+	assert.Equal(t, codes.Internal, st.Code())
+}
