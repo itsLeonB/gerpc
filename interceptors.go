@@ -19,3 +19,15 @@ func NewLoggingInterceptor(logger ezutil.Logger) grpc.UnaryServerInterceptor {
 	interceptor := internal.NewLoggingInterceptor(logger)
 	return interceptor.Handle
 }
+
+// NewErrorStreamInterceptor creates an error handling interceptor for gRPC streams.
+func NewErrorStreamInterceptor(logger ezutil.Logger) grpc.StreamServerInterceptor {
+	interceptor := internal.NewErrorInterceptor(logger)
+	return interceptor.HandleStream
+}
+
+// NewLoggingStreamInterceptor logs incoming stream requests, responses, durations, and errors.
+func NewLoggingStreamInterceptor(logger ezutil.Logger) grpc.StreamServerInterceptor {
+	interceptor := internal.NewLoggingInterceptor(logger)
+	return interceptor.HandleStream
+}

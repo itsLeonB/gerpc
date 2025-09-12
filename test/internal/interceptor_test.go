@@ -25,6 +25,10 @@ func (ti *testInterceptor) Handle(ctx context.Context, req any, info *grpc.Unary
 	return handler(ctx, req)
 }
 
+func (ti *testInterceptor) HandleStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	return handler(srv, ss)
+}
+
 func TestCustomInterceptor(t *testing.T) {
 	var interceptor internal.Interceptor = &testInterceptor{}
 	assert.NotNil(t, interceptor)
