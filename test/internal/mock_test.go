@@ -1,6 +1,11 @@
 package internal_test
 
-import "github.com/stretchr/testify/mock"
+import (
+	"context"
+
+	"github.com/stretchr/testify/mock"
+	"google.golang.org/grpc/metadata"
+)
 
 type MockLogger struct {
 	mock.Mock
@@ -26,3 +31,12 @@ func (m *MockLogger) Fatal(args ...interface{}) { m.Called(args...) }
 func (m *MockLogger) Fatalf(format string, args ...interface{}) {
 	m.Called(append([]interface{}{format}, args...)...)
 }
+
+type mockServerStream struct{}
+
+func (m *mockServerStream) SetHeader(metadata.MD) error  { return nil }
+func (m *mockServerStream) SendHeader(metadata.MD) error { return nil }
+func (m *mockServerStream) SetTrailer(metadata.MD)       {}
+func (m *mockServerStream) Context() context.Context     { return context.Background() }
+func (m *mockServerStream) SendMsg(interface{}) error    { return nil }
+func (m *mockServerStream) RecvMsg(interface{}) error    { return nil }

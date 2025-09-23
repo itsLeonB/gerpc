@@ -58,6 +58,33 @@ func (ei *errorInterceptor) Handle(ctx context.Context, req any, info *grpc.Unar
 	return resp, status.Error(codes.Code(appError.GrpcStatus()), appError.Error())
 }
 
+// HandleStream is the stream interceptor function that processes errors and panics
+func (ei *errorInterceptor) HandleStream(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			ei.handleStreamPanic(r, ss.Context(), info)
+			appError := ungerr.InternalServerError()
+			err = status.Error(codes.Code(appError.GrpcStatus()), appError.Error())
+		}
+	}()
+
+	err = handler(srv, ss)
+	if err == nil {
+		return nil
+	}
+
+	if _, ok := status.FromError(err); ok {
+		return err
+	}
+
+	if appErr, ok := err.(ungerr.AppError); ok {
+		return status.Error(codes.Code(appErr.GrpcStatus()), appErr.Error())
+	}
+
+	appError := ei.constructStreamAppError(err, info)
+	return status.Error(codes.Code(appError.GrpcStatus()), appError.Error())
+}
+
 // constructAppError converts various error types into AppError
 func (ei *errorInterceptor) constructAppError(err error, info *grpc.UnaryServerInfo) ungerr.AppError {
 	// First, try to unwrap with eris to get the original error
@@ -129,6 +156,92 @@ func (ei *errorInterceptor) logAndMaskError(err error) ungerr.AppError {
 	ei.logger.Error(eris.ToString(err, true))
 
 	return ungerr.InternalServerError()
+}
+
+// constructStreamAppError converts various error types into AppError for streams
+func (ei *errorInterceptor) constructStreamAppError(err error, info *grpc.StreamServerInfo) ungerr.AppError {
+	originalErr := eris.Unwrap(err)
+	if originalErr == nil {
+		return ei.logStreamUnwrappedError(err, info)
+	}
+
+	switch originalErr := originalErr.(type) {
+	case validator.ValidationErrors:
+		var errors []string
+		for _, e := range originalErr {
+			errors = append(errors, e.Error())
+		}
+		return ungerr.ValidationError(errors)
+	case *json.SyntaxError:
+		return ungerr.BadRequestError("invalid json")
+	case *json.UnmarshalTypeError:
+		return ungerr.BadRequestError(fmt.Sprintf("invalid value for field %s", originalErr.Field))
+	default:
+		errStr := originalErr.Error()
+		if originalErr == io.EOF || errStr == "EOF" {
+			return ungerr.BadRequestError("missing request body")
+		}
+		if strings.Contains(errStr, "connection reset by peer") ||
+			strings.Contains(errStr, "broken pipe") ||
+			strings.Contains(errStr, "context canceled") ||
+			strings.Contains(errStr, "context deadline exceeded") {
+			return ungerr.BadRequestError("connection error")
+		}
+		return ei.logAndMaskError(err)
+	}
+}
+
+// logStreamUnwrappedError handles errors that weren't properly wrapped with eris for streams
+func (ei *errorInterceptor) logStreamUnwrappedError(err error, info *grpc.StreamServerInfo) ungerr.AppError {
+	ei.logger.Error("UNWRAPPED ERROR DETECTED - Please add eris.Wrap() or return ungerr.AppError")
+	ei.logger.Errorf("Error type: %T", err)
+	ei.logger.Errorf("Error message: %s", err.Error())
+	ei.logger.Errorf("gRPC stream method: %s", info.FullMethod)
+	ei.logger.Error("Stack trace from error location:")
+	ei.logger.Errorf("%+v", err)
+	return ungerr.InternalServerError()
+}
+
+// handleStreamPanic recovers from panics and converts them to structured errors for streams
+func (ei *errorInterceptor) handleStreamPanic(r interface{}, ctx context.Context, info *grpc.StreamServerInfo) {
+	ei.logger.Error("PANIC RECOVERED in gRPC stream handler")
+	ei.logger.Errorf("gRPC stream method: %s", info.FullMethod)
+	ei.logger.Errorf("Panic value: %v", r)
+	ei.logger.Errorf("Panic type: %T", r)
+
+	if deadline, ok := ctx.Deadline(); ok {
+		ei.logger.Errorf("Context deadline: %v", deadline)
+	}
+	if ctx.Err() != nil {
+		ei.logger.Errorf("Context error: %v", ctx.Err())
+	}
+
+	ei.logger.Error("Stack trace:")
+	ei.logger.Error(string(debug.Stack()))
+
+	switch panicValue := r.(type) {
+	case string:
+		if strings.Contains(panicValue, "index out of range") ||
+			strings.Contains(panicValue, "slice bounds out of range") {
+			ei.logger.Error("Array/slice bounds panic detected")
+		} else if strings.Contains(panicValue, "nil pointer dereference") {
+			ei.logger.Error("Nil pointer dereference panic detected")
+		} else {
+			ei.logger.Errorf("String panic: %s", panicValue)
+		}
+	case runtime.Error:
+		ei.logger.Errorf("Runtime error panic: %v", panicValue)
+		switch panicValue.Error() {
+		case "runtime error: invalid memory address or nil pointer dereference":
+			ei.logger.Error("Nil pointer dereference detected")
+		case "runtime error: index out of range":
+			ei.logger.Error("Index out of range detected")
+		case "runtime error: slice bounds out of range":
+			ei.logger.Error("Slice bounds out of range detected")
+		}
+	default:
+		ei.logger.Errorf("Unknown panic type: %T, value: %v", r, r)
+	}
 }
 
 // handlePanic recovers from panics and converts them to structured errors

@@ -66,3 +66,38 @@ func TestLoggingInterceptor_Handle_NonGRPCError(t *testing.T) {
 	assert.Equal(t, testErr, err)
 	logger.AssertExpectations(t)
 }
+
+func TestLoggingInterceptor_HandleStream_Success(t *testing.T) {
+	logger := &MockLogger{}
+	logger.On("Infof", mock.Anything, mock.Anything, mock.Anything).Return()
+
+	interceptor := internal.NewLoggingInterceptor(logger)
+
+	handler := func(srv interface{}, ss grpc.ServerStream) error {
+		return nil
+	}
+
+	info := &grpc.StreamServerInfo{FullMethod: "/test.Service/StreamMethod"}
+	err := interceptor.HandleStream(nil, &mockServerStream{}, info, handler)
+
+	assert.NoError(t, err)
+	logger.AssertExpectations(t)
+}
+
+func TestLoggingInterceptor_HandleStream_Error(t *testing.T) {
+	logger := &MockLogger{}
+	logger.On("Errorf", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return()
+
+	interceptor := internal.NewLoggingInterceptor(logger)
+
+	testErr := status.Error(codes.InvalidArgument, "test error")
+	handler := func(srv interface{}, ss grpc.ServerStream) error {
+		return testErr
+	}
+
+	info := &grpc.StreamServerInfo{FullMethod: "/test.Service/StreamMethod"}
+	err := interceptor.HandleStream(nil, &mockServerStream{}, info, handler)
+
+	assert.Equal(t, testErr, err)
+	logger.AssertExpectations(t)
+}
