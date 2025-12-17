@@ -8,14 +8,16 @@ import (
 
 	"github.com/itsLeonB/ezutil/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 type GrpcServer struct {
-	logger          ezutil.Logger
-	address         string
-	opts            []grpc.ServerOption
-	registerSrvFunc func(*grpc.Server) error
-	shutdownFunc    func() error
+	logger             ezutil.Logger
+	address            string
+	opts               []grpc.ServerOption
+	registerSrvFunc    func(*grpc.Server) error
+	shutdownFunc       func() error
+	reflectionsEnabled bool
 }
 
 func NewGrpcServer() *GrpcServer {
@@ -47,6 +49,11 @@ func (s *GrpcServer) WithShutdownFunc(shutdownFunc func() error) *GrpcServer {
 	return s
 }
 
+func (s *GrpcServer) WithReflections() *GrpcServer {
+	s.reflectionsEnabled = true
+	return s
+}
+
 func (s *GrpcServer) Run() {
 	if s.logger == nil {
 		panic("logger cannot be nil, call WithLogger")
@@ -69,6 +76,10 @@ func (s *GrpcServer) Run() {
 	grpcServer := grpc.NewServer(s.opts...)
 	if err := s.registerSrvFunc(grpcServer); err != nil {
 		s.logger.Fatalf("error registering services: %v", err)
+	}
+
+	if s.reflectionsEnabled {
+		reflection.Register(grpcServer)
 	}
 
 	go func() {
